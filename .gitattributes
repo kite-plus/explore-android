@@ -1,0 +1,4 @@
+# The wrapper scripts keep the line endings their platforms need.
+gradlew text eol=lf
+*.bat text eol=crlf
+*.jar binary

@@ -1,0 +1,116 @@
+# Pushing a tag such as v0.1.0 releases the app: CI's checks, a release
+# build, and a GitHub Release with notes from the changelogs. Once the
+# signing keystore is in the repository's secrets, the signed APK is
+# attached to the release. A manual run builds without publishing.
+# RELEASE.md has the steps.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # A tag is not a promise that the code works, so CI's checks run first.
+  verify:
+    name: Verify
+    uses: ./.github/workflows/ci.yml
+
+  # Before anything is built: a tag with no changelog section stops here.
+  notes:
+    name: Release notes
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Build the notes
+        run: |
+          previous=$(git describe --tags --abbrev=0 "$GITHUB_REF_NAME^" 2>/dev/null || true)
+          PREVIOUS_TAG="$previous" sh scripts/release-notes.sh "$GITHUB_REF_NAME" > release-notes.md
+          cat release-notes.md
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  build:
+    name: Build
+    needs: [verify, notes]
+    # A manual run skips the notes and still builds.
+    if: ${{ !cancelled() && needs.verify.result == 'success' && contains(fromJSON('["success", "skipped"]'), needs.notes.result) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: platforms;android-37.0 build-tools;36.1.0 platform-tools
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      # Signs only for a tag; a manual run keeps what it builds unsigned.
+      - name: Build
+        env:
+          KEYSTORE_BASE64: ${{ github.event_name == 'push' && secrets.ANDROID_KEYSTORE_BASE64 || '' }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: sh scripts/build-release.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: apk
+          path: release/
+          if-no-files-found: ignore
+
+  publish:
+    name: GitHub Release
+    needs: [notes, build]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: release
+
+      # Missing when the build was not signed.
+      - uses: actions/download-artifact@v8
+        continue-on-error: true
+        with:
+          name: apk
+          path: apk
+
+      # A re-run updates the release it made the first time.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          title="Kite for Android $GITHUB_REF_NAME"
+          set -- apk/*.apk
+          [ -e "$1" ] || set --
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "$title" --notes-file release/release-notes.md
+            [ $# -eq 0 ] || gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$@"
+          else
+            prerelease=""
+            case "$GITHUB_REF_NAME" in *-*) prerelease=--prerelease ;; esac
+            gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --verify-tag $prerelease \
+              --title "$title" --notes-file release/release-notes.md "$@"
+          fi
