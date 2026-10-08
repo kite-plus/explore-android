@@ -7,7 +7,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -128,19 +127,17 @@ fun KiteMark(modifier: Modifier = Modifier, tint: Color = Color.Unspecified) {
     Icon(painterResource(R.drawable.kite_mark), contentDescription = null, modifier = modifier, tint = tint)
 }
 
-/** The app mark on a plain tile, for sign-in and about screens. */
+/** The app icon as a tile, for sign-in and about screens. */
 @Composable
 fun MarkTile(size: Dp = 88.dp) {
-    val colors = Explore.colors
     Box(
         modifier = Modifier
             .size(size)
             .clip(RoundedCornerShape(size * 0.26f))
-            .background(colors.card)
-            .border(1.dp, colors.separator.copy(alpha = 0.5f), RoundedCornerShape(size * 0.26f)),
+            .background(Brush.verticalGradient(listOf(Color(0xFF5E8BE6), Color(0xFF3D66C2)))),
         contentAlignment = Alignment.Center,
     ) {
-        KiteMark(Modifier.width(size * 0.5f).height(size * 0.41f), tint = colors.label)
+        KiteMark(Modifier.width(size * 0.5f).height(size * 0.41f), tint = Color.White)
     }
 }
 
