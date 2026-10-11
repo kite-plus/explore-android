@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Inventory
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.Key
+import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.LockReset
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.RssFeed
@@ -121,8 +122,11 @@ fun MeScreen() {
                     SettingsRow(stringResource(R.string.me_my_blogs), Icons.Rounded.Verified, chevron = true) { app.navigate(Route.OwnedBlogs) }
                     RowDivider()
                     SettingsRow(stringResource(R.string.account_change_name), Icons.Rounded.Badge) { app.sheet = AppSheet.EditName }
-                    RowDivider()
-                    SettingsRow(stringResource(R.string.account_change_password), Icons.Rounded.Key) { app.sheet = AppSheet.ChangePassword() }
+                    // An account that signs in with Kite Plus has no password to change.
+                    if (app.user?.passwordLogin != false) {
+                        RowDivider()
+                        SettingsRow(stringResource(R.string.account_change_password), Icons.Rounded.Key) { app.sheet = AppSheet.ChangePassword() }
+                    }
                 }
             }
         }
@@ -160,10 +164,16 @@ fun MeScreen() {
         }
         if (app.isSignedIn) {
             item {
-                FormSection {
+                // Deleting the Kite Plus account happens on the provider's page; its deletion then reaches Explore.
+                val accountUrl = app.kitePlus?.accountUrl?.takeIf { app.user?.identityLinkedAt != null && it.isNotEmpty() }
+                FormSection(footer = accountUrl?.let { stringResource(R.string.kite_plus_delete_footer) }) {
                     SettingsRow(stringResource(R.string.account_sign_out), color = colors.red) { confirmingSignOut = true }
                     RowDivider(inset = false)
                     SettingsRow(stringResource(R.string.account_delete), color = colors.red) { app.sheet = AppSheet.DeleteAccount }
+                    if (accountUrl != null) {
+                        RowDivider(inset = false)
+                        SettingsRow(stringResource(R.string.kite_plus_delete), color = colors.red) { app.openLink(accountUrl) }
+                    }
                 }
             }
         }
@@ -212,7 +222,12 @@ private fun ProfileHeader() {
                 Text(user.displayName, style = ExploreType.title2, color = colors.label)
                 Text(user.email, style = ExploreType.subheadline, color = colors.secondaryLabel)
             }
-            if (user.isAdmin) Pill(stringResource(R.string.me_admin), Icons.Rounded.Shield)
+            if (user.isAdmin || user.identityLinkedAt != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (user.identityLinkedAt != null) Pill(stringResource(R.string.me_kite_plus_linked), Icons.Rounded.Link)
+                    if (user.isAdmin) Pill(stringResource(R.string.me_admin), Icons.Rounded.Shield)
+                }
+            }
         } else {
             MarkTile(76.dp)
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -120,6 +120,8 @@
     <string name="generator_other">其他</string>
     <string name="handoff_title">正在前往作者的网站</string>
     <string name="kite_plus_default_name">Kite Plus 账号</string>
+    <string name="kite_plus_delete">删除 Kite Plus 账号</string>
+    <string name="kite_plus_delete_footer">Kite Plus 账号在 Kite Plus 的各个服务通用。到 Kite Plus 账号页面删除它，Explore 的账号也会随之删除。</string>
     <string name="kite_plus_error_cancelled">Kite Plus 账号登录已取消。</string>
     <string name="kite_plus_error_disabled">这个账号已停用。</string>
     <string name="kite_plus_error_email_in_use">这个邮箱已经有 Explore 账号。请先用邮箱和密码登录，再到 Explore 网站的「我的账号」页面关联 Kite Plus 账号。</string>
@@ -150,6 +152,7 @@
     <string name="me_contribute_footer">Explore 收录有可用 RSS、Atom 或 JSON Feed、近 12 个月内有更新的个人独立博客。</string>
     <string name="me_dim_read">读过的文章变淡</string>
     <string name="me_export_every_blog">导出全部博客（OPML）</string>
+    <string name="me_kite_plus_linked">已关联 Kite Plus 账号</string>
     <string name="me_my_blogs">我认领的博客</string>
     <string name="me_my_submissions">我的提交</string>
     <string name="me_open_in_browser">在浏览器中打开链接</string>

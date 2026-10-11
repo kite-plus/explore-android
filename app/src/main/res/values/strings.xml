@@ -121,6 +121,8 @@
     <string name="generator_other">Other</string>
     <string name="handoff_title">Taking you to the author\'s site</string>
     <string name="kite_plus_default_name">Kite Plus account</string>
+    <string name="kite_plus_delete">Delete Kite Plus Account</string>
+    <string name="kite_plus_delete_footer">Your Kite Plus account works across Kite Plus services. Delete it on its account page and your Explore account is deleted with it.</string>
     <string name="kite_plus_error_cancelled">Signing in with Kite Plus was cancelled.</string>
     <string name="kite_plus_error_disabled">This account is disabled.</string>
     <string name="kite_plus_error_email_in_use">This email already belongs to an Explore account. Sign in with its email and password, then link it to Kite Plus on the account page of the Explore website.</string>
@@ -151,6 +153,7 @@
     <string name="me_contribute_footer">Explore lists personal and independent blogs with a working RSS, Atom or JSON Feed, updated within the last 12 months.</string>
     <string name="me_dim_read">Dim Posts You\'ve Read</string>
     <string name="me_export_every_blog">Export Every Blog as OPML</string>
+    <string name="me_kite_plus_linked">Linked to Kite Plus</string>
     <string name="me_my_blogs">My Blogs</string>
     <string name="me_my_submissions">My Submissions</string>
     <string name="me_open_in_browser">Open Links in the Browser</string>
