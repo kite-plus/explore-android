@@ -54,6 +54,28 @@ object LinkOpener {
         }
     }
 
+    /**
+     * Opens a server's sign-in page in a browser tab, which shares its cookies with the browser,
+     * so a reader already signed in there is not asked again and password managers work. The
+     * page leaves for the app's callback address when it is done.
+     */
+    fun openSignIn(context: Context, url: String) {
+        val uri = url.toUri()
+        val builder = CustomTabsIntent.Builder()
+            .setShowTitle(true)
+            .setShareState(CustomTabsIntent.SHARE_STATE_OFF)
+            .setDefaultColorSchemeParams(CustomTabColorSchemeParams.Builder().setToolbarColor(Color.WHITE).build())
+            .setColorSchemeParams(
+                CustomTabsIntent.COLOR_SCHEME_DARK,
+                CustomTabColorSchemeParams.Builder().setToolbarColor(Color.BLACK).build(),
+            )
+        try {
+            builder.build().launchUrl(context, uri)
+        } catch (_: ActivityNotFoundException) {
+            openInBrowser(context, uri)
+        }
+    }
+
     fun openInBrowser(context: Context, url: String, source: String? = null) {
         if (!Formatting.isWeb(url)) return
         openInBrowser(context, (source?.let { SourceTag.tagged(url, it) } ?: url).toUri())

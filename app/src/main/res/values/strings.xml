@@ -120,6 +120,7 @@
     <string name="following_welcome_title">Follow the Blogs You Love</string>
     <string name="generator_other">Other</string>
     <string name="handoff_title">Taking you to the author\'s site</string>
+    <string name="kite_plus_default_name">Kite Plus account</string>
     <string name="kite_plus_error_cancelled">Signing in with Kite Plus was cancelled.</string>
     <string name="kite_plus_error_disabled">This account is disabled.</string>
     <string name="kite_plus_error_email_in_use">This email already belongs to an Explore account. Sign in with its email and password, then link it to Kite Plus on the account page of the Explore website.</string>
@@ -127,6 +128,8 @@
     <string name="kite_plus_error_expired">The sign-in expired. Try again.</string>
     <string name="kite_plus_error_failed">Signing in with Kite Plus didn\'t work. Try again.</string>
     <string name="kite_plus_error_unavailable">Kite Plus accounts are unavailable right now. Try again later.</string>
+    <string name="kite_plus_sign_in">Sign In with %1$s</string>
+    <string name="kite_plus_switch_account">Use Another Account</string>
     <string name="link_awaiting_check">Awaiting check</string>
     <string name="link_check_now">Check Now</string>
     <string name="link_checked_at">Checked %1$s</string>
@@ -259,9 +262,11 @@
     <string name="sign_in_hide_password">Hide Password</string>
     <string name="sign_in_name_prompt">Your name or nickname</string>
     <string name="sign_in_password">Password</string>
+    <string name="sign_in_password_accounts">Accounts made on Explore before can still sign in with their email and password.</string>
     <string name="sign_in_privacy">Explore keeps your email, your name and a hash of your password, plus the blogs you follow. It never records what you read.</string>
     <string name="sign_in_show_password">Show Password</string>
     <string name="sign_in_tagline">Follow blogs and read their new posts in one stream.</string>
+    <string name="sign_in_title">Sign In to Explore</string>
     <string name="sign_in_welcome_back">Welcome Back</string>
     <string name="stream_following">Following</string>
     <string name="stream_latest">Latest</string>

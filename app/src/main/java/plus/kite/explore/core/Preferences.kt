@@ -14,6 +14,7 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+import plus.kite.explore.data.PendingSignIns
 
 /** The reader's settings, kept on the device and observed by the screens that show them. */
 class Preferences(context: Context) {
@@ -79,10 +80,29 @@ class Preferences(context: Context) {
  * A token that cannot be decrypted, such as one restored onto a new phone, reads as signed out.
  */
 class TokenStore(context: Context) {
-    private val prefs = context.getSharedPreferences("explore.tokens", Context.MODE_PRIVATE)
+    private val sealed = SealedPrefs(context, "explore.tokens")
 
-    fun token(server: String): String? {
-        val stored = prefs.getString(server, null) ?: return null
+    fun token(server: String): String? = sealed.get(server)
+
+    fun setToken(server: String, token: String?) = sealed.set(server, token)
+}
+
+/** The Kite Plus sign-in waiting for its callback, sealed like the tokens since it holds the PKCE verifier. */
+class PendingSignInStore(context: Context) : PendingSignIns.Storage {
+    private val sealed = SealedPrefs(context, "explore.signin")
+
+    override fun read(): String? = sealed.get("pending")
+
+    // Written at once: the browser tab opens next, and the system may end the app behind it.
+    override fun write(value: String?) = sealed.set("pending", value, now = true)
+}
+
+/** Strings encrypted with a key that never leaves the Android Keystore; one that cannot be decrypted reads as none. */
+private class SealedPrefs(context: Context, name: String) {
+    private val prefs = context.getSharedPreferences(name, Context.MODE_PRIVATE)
+
+    fun get(key: String): String? {
+        val stored = prefs.getString(key, null) ?: return null
         return try {
             val bytes = Base64.decode(stored, Base64.NO_WRAP)
             val ivLength = bytes[0].toInt()
@@ -95,17 +115,17 @@ class TokenStore(context: Context) {
         }
     }
 
-    fun setToken(server: String, token: String?) {
-        if (token == null) {
-            prefs.edit { remove(server) }
+    fun set(key: String, value: String?, now: Boolean = false) {
+        if (value == null) {
+            prefs.edit(commit = now) { remove(key) }
             return
         }
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val iv = cipher.iv
-        val sealed = cipher.doFinal(token.encodeToByteArray())
+        val sealed = cipher.doFinal(value.encodeToByteArray())
         val bytes = byteArrayOf(iv.size.toByte()) + iv + sealed
-        prefs.edit { putString(server, Base64.encodeToString(bytes, Base64.NO_WRAP)) }
+        prefs.edit(commit = now) { putString(key, Base64.encodeToString(bytes, Base64.NO_WRAP)) }
     }
 
     private fun key(): SecretKey {

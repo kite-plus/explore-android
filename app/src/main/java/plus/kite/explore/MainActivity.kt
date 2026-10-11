@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         app.catchUp()
     }
 
-    /** Links into the app, and the items of a post's browser tab menu. */
+    /** Links into the app, Kite Plus sign-in callbacks, and the items of a post's browser tab menu. */
     private fun handle(intent: Intent?) {
         intent ?: return
         if (intent.action == LinkOpener.ACTION_POST) {
@@ -80,7 +80,9 @@ class MainActivity : ComponentActivity() {
             }
             return
         }
-        intent.dataString?.let { app.open(DeepLink.parse(it)) }
+        val address = intent.dataString ?: return
+        if (app.handleSignInCallback(address)) return
+        app.open(DeepLink.parse(address))
     }
 }
 

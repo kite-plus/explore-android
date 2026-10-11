@@ -222,7 +222,7 @@ private fun ProfileHeader() {
             PrimaryButton(onClick = { app.sheet = AppSheet.SignIn(SignInMode.SignIn) }, modifier = Modifier.fillMaxWidth(), large = true) {
                 Text(stringResource(R.string.account_sign_in), style = ExploreType.headline)
             }
-            if (app.registrationEnabled) {
+            if (app.allowsRegistration) {
                 TextButton(onClick = { app.sheet = AppSheet.SignIn(SignInMode.Register) }) {
                     Text(stringResource(R.string.account_create), style = ExploreType.headline, color = colors.secondaryLabel)
                 }

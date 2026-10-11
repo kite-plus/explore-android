@@ -119,6 +119,7 @@
     <string name="following_welcome_title">订阅你喜欢的博客</string>
     <string name="generator_other">其他</string>
     <string name="handoff_title">正在前往作者的网站</string>
+    <string name="kite_plus_default_name">Kite Plus 账号</string>
     <string name="kite_plus_error_cancelled">Kite Plus 账号登录已取消。</string>
     <string name="kite_plus_error_disabled">这个账号已停用。</string>
     <string name="kite_plus_error_email_in_use">这个邮箱已经有 Explore 账号。请先用邮箱和密码登录，再到 Explore 网站的「我的账号」页面关联 Kite Plus 账号。</string>
@@ -126,6 +127,8 @@
     <string name="kite_plus_error_expired">登录已过期，请重试。</string>
     <string name="kite_plus_error_failed">没能用 Kite Plus 账号登录，请重试。</string>
     <string name="kite_plus_error_unavailable">Kite Plus 账号暂时无法访问，请稍后再试。</string>
+    <string name="kite_plus_sign_in">使用 %1$s登录</string>
+    <string name="kite_plus_switch_account">换一个账号</string>
     <string name="link_awaiting_check">待检测</string>
     <string name="link_check_now">立即检测</string>
     <string name="link_checked_at">%1$s检测</string>
@@ -258,9 +261,11 @@
     <string name="sign_in_hide_password">隐藏密码</string>
     <string name="sign_in_name_prompt">你的名字或昵称</string>
     <string name="sign_in_password">密码</string>
+    <string name="sign_in_password_accounts">以前在 Explore 注册的账号，可以继续用邮箱和密码登录。</string>
     <string name="sign_in_privacy">Explore 只保存你的邮箱、名称、密码的哈希值，以及你订阅的博客，从不记录你读了什么。</string>
     <string name="sign_in_show_password">显示密码</string>
     <string name="sign_in_tagline">订阅喜欢的博客，在一条信息流里追更。</string>
+    <string name="sign_in_title">登录 Explore</string>
     <string name="sign_in_welcome_back">欢迎回来</string>
     <string name="stream_following">订阅</string>
     <string name="stream_latest">最新</string>

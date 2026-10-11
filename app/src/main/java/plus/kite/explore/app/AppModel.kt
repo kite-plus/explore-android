@@ -2,6 +2,7 @@ package plus.kite.explore.app
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.Favorite
@@ -9,6 +10,7 @@ import androidx.compose.material.icons.rounded.HeartBroken
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.HowToReg
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -25,19 +27,24 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import plus.kite.explore.BuildConfig
 import plus.kite.explore.R
 import plus.kite.explore.blogs.DirectoryState
 import plus.kite.explore.discover.DiscoverState
 import plus.kite.explore.core.Formatting
 import plus.kite.explore.core.LinkOpener
+import plus.kite.explore.core.PendingSignInStore
 import plus.kite.explore.core.Preferences
 import plus.kite.explore.core.TokenStore
 import plus.kite.explore.data.ApiClient
 import plus.kite.explore.data.ApiError
+import plus.kite.explore.data.AppSignIn
+import plus.kite.explore.data.AuthOptions
 import plus.kite.explore.data.BlogRef
 import plus.kite.explore.data.Entry
 import plus.kite.explore.data.LinkState
 import plus.kite.explore.data.LinkStatus
+import plus.kite.explore.data.PendingSignIns
 import plus.kite.explore.data.Topic
 import plus.kite.explore.data.User
 import plus.kite.explore.data.isCancellation
@@ -59,6 +66,7 @@ class AppModel(context: Context) {
     private val context: Context = context.applicationContext
     val prefs = Preferences(this.context)
     private val tokens = TokenStore(this.context)
+    private val signIns = PendingSignIns(PendingSignInStore(this.context))
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     /** The activity on screen, for opening browser tabs over it. */
@@ -100,6 +108,17 @@ class AppModel(context: Context) {
         private set
     var registrationEnabled by mutableStateOf(true)
         private set
+
+    /** How the server signs readers in; null until it answers, which reads as passwords only. */
+    var authOptions by mutableStateOf<AuthOptions?>(null)
+        private set
+
+    /** True while a code from Kite Plus sign-in is being traded for a session. */
+    var isFinishingKitePlus by mutableStateOf(false)
+        private set
+
+    /** Why the last Kite Plus sign-in failed, for the sign-in sheet to show. */
+    var kitePlusError by mutableStateOf<String?>(null)
     var followedHosts by mutableStateOf<Set<String>>(emptySet())
         private set
     var pendingFollows by mutableStateOf<Set<String>>(emptySet())
@@ -126,6 +145,14 @@ class AppModel(context: Context) {
     val isSignedIn: Boolean get() = user != null
     val isDefaultServer: Boolean get() = server == DEFAULT_SERVER
 
+    /** The identity provider the server signs in through, such as Kite Plus, if it has one. */
+    val kitePlus: AuthOptions.Oidc? get() = authOptions?.oidc
+
+    /** New accounts come from Kite Plus on a server that has it, so the app offers no sign-up there. */
+    val allowsRegistration: Boolean get() = registrationEnabled && kitePlus == null
+
+    val allowsPassword: Boolean get() = authOptions?.password != false
+
     /** The utm_source added to links that leave the app: the server's host, as the website does. */
     val sourceTag: String get() = client.host
 
@@ -139,6 +166,7 @@ class AppModel(context: Context) {
     fun bootstrap() {
         scope.launch { loadTopics() }
         scope.launch { loadSiteConfig() }
+        scope.launch { loadAuthOptions() }
         scope.launch { restoreSession() }
     }
 
@@ -167,10 +195,21 @@ class AppModel(context: Context) {
         siteConfigLoadedAt = Instant.now()
     }
 
+    suspend fun loadAuthOptions() {
+        val client = client
+        val options = try {
+            client.authOptions()
+        } catch (_: Exception) {
+            return
+        }
+        if (client === this.client) authOptions = options
+    }
+
     /** Catches up when the app comes back: whatever failed at launch, and a site notice older than ten minutes. */
     fun catchUp() {
         scope.launch { loadTopics() }
         scope.launch { restoreSession() }
+        if (authOptions == null) scope.launch { loadAuthOptions() }
         val loadedAt = siteConfigLoadedAt
         if (loadedAt == null || Instant.now().epochSecond - loadedAt.epochSecond > 600) {
             scope.launch { loadSiteConfig() }
@@ -217,6 +256,59 @@ class AppModel(context: Context) {
     suspend fun register(email: String, password: String, displayName: String) {
         val (user, token) = client.register(email, password, displayName)
         startSession(user, token)
+    }
+
+    /**
+     * Opens the server's Kite Plus sign-in in a browser tab. The browser keeps the provider's
+     * sign-in, so signing in again returns to the same account; switchAccount asks the provider
+     * to offer another one.
+     */
+    fun startKitePlusSignIn(switchAccount: Boolean) {
+        kitePlusError = null
+        val url = signIns.start(server, switchAccount)
+        // The start address carries only the PKCE challenge; tests read it to finish signing in on another browser.
+        if (BuildConfig.DEBUG) Log.d("KiteSignIn", "start $url")
+        LinkOpener.openSignIn(activityOrContext(), url)
+    }
+
+    /**
+     * Takes an address that came into the app and, when it is a Kite Plus sign-in callback,
+     * finishes the pending sign-in with it. Returns whether the address was a callback.
+     */
+    fun handleSignInCallback(address: String): Boolean {
+        val callback = AppSignIn.parseCallback(address) ?: return false
+        when (val outcome = signIns.resolve(callback, server)) {
+            is PendingSignIns.Outcome.Exchange -> scope.launch { finishKitePlusSignIn(outcome.code, outcome.verifier) }
+            is PendingSignIns.Outcome.Failed -> failKitePlusSignIn(string(AppSignIn.failureMessage(outcome.reason)))
+            PendingSignIns.Outcome.Ignored -> Unit
+        }
+        return true
+    }
+
+    private suspend fun finishKitePlusSignIn(code: String, verifier: String) {
+        val client = client
+        isFinishingKitePlus = true
+        kitePlusError = null
+        try {
+            val (user, token) = client.exchange(code, verifier)
+            if (client !== this.client) return
+            startSession(user, token)
+            if (sheet is AppSheet.SignIn) sheet = null
+            showToast(string(R.string.toast_signed_in), Icons.Rounded.HowToReg)
+            loadFollows()
+        } catch (error: Exception) {
+            if (error.isCancellation) throw error
+            val code = (error as? ApiError)?.code
+            failKitePlusSignIn(if (code == "invalid_grant") string(AppSignIn.failureMessage(code)) else message(error))
+        } finally {
+            isFinishingKitePlus = false
+        }
+    }
+
+    /** Shows why signing in failed on the sign-in sheet, opening it when the app came back without it. */
+    private fun failKitePlusSignIn(message: String) {
+        kitePlusError = message
+        if (sheet !is AppSheet.SignIn) sheet = AppSheet.SignIn(SignInMode.SignIn)
     }
 
     fun signOut() {
@@ -384,6 +476,9 @@ class AppModel(context: Context) {
         user = null
         topics = emptyList()
         notice = ""
+        authOptions = null
+        kitePlusError = null
+        signIns.cancel()
         followedHosts = emptySet()
         linkStates.clear()
         submissionIds = prefs.submissions(key(url))

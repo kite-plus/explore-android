@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -37,6 +38,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -46,6 +48,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -73,24 +76,29 @@ import plus.kite.explore.design.Hairline
 import plus.kite.explore.design.MarkTile
 import plus.kite.explore.design.PrimaryButton
 import plus.kite.explore.design.RowDivider
+import plus.kite.explore.design.SecondaryButton
 import plus.kite.explore.design.SettingsRow
 import plus.kite.explore.design.SheetBar
 
-/** A spinner sized for a button's label. */
+/** A spinner sized for a button's label, in the main button's label color unless told otherwise. */
 @Composable
-fun ButtonSpinner() {
-    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Explore.colors.background)
+fun ButtonSpinner(color: Color = Explore.colors.background) {
+    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = color)
 }
 
 /**
  * Sign in with an Explore account, or create one. Explore asks for nothing beyond an email,
  * a name and a password. A password an admin reset turns the sheet into Change Password.
+ *
+ * On a server with Kite Plus, signing in with it comes first and new accounts come from it, so
+ * there is no sign-up; the password form stays below for accounts made on Explore before.
  */
 @Composable
 fun SignInSheet(initial: SignInMode, onDismiss: () -> Unit) {
     val app = LocalApp.current
     val colors = Explore.colors
     val scope = rememberCoroutineScope()
+    val kitePlus = app.kitePlus
     var mode by remember { mutableStateOf(initial) }
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -100,7 +108,11 @@ fun SignInSheet(initial: SignInMode, onDismiss: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     var showsPassword by remember { mutableStateOf(false) }
     var mustChangePassword by remember { mutableStateOf(false) }
-    val registering = mode == SignInMode.Register
+    val registering = mode == SignInMode.Register && app.allowsRegistration
+    val busy = working || app.isFinishingKitePlus
+
+    LaunchedEffect(Unit) { app.loadAuthOptions() }
+    DisposableEffect(Unit) { onDispose { app.kitePlusError = null } }
 
     if (mustChangePassword) {
         ChangePasswordSheet(signedInWith = password, onDismiss = onDismiss)
@@ -122,7 +134,7 @@ fun SignInSheet(initial: SignInMode, onDismiss: () -> Unit) {
     }
 
     fun submit() {
-        if (working) return
+        if (busy) return
         validate()?.let {
             error = it
             return
@@ -172,10 +184,32 @@ fun SignInSheet(initial: SignInMode, onDismiss: () -> Unit) {
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 MarkTile(84.dp)
-                Text(stringResource(if (registering) R.string.sign_in_create_title else R.string.sign_in_welcome_back), style = ExploreType.title, color = colors.label)
+                val title = when {
+                    registering -> R.string.sign_in_create_title
+                    kitePlus != null -> R.string.sign_in_title
+                    else -> R.string.sign_in_welcome_back
+                }
+                Text(stringResource(title), style = ExploreType.title, color = colors.label)
                 Text(stringResource(R.string.sign_in_tagline), style = ExploreType.subheadline, color = colors.secondaryLabel, textAlign = TextAlign.Center)
             }
-            if (app.registrationEnabled) {
+            if (kitePlus != null) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    PrimaryButton(onClick = { app.startKitePlusSignIn(switchAccount = false) }, modifier = Modifier.fillMaxWidth(), enabled = !busy, large = true) {
+                        if (app.isFinishingKitePlus) {
+                            ButtonSpinner()
+                        } else {
+                            Icon(Icons.Rounded.Key, null, Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            val name = kitePlus.name.ifBlank { stringResource(R.string.kite_plus_default_name) }
+                            Text(stringResource(R.string.kite_plus_sign_in, name), style = ExploreType.headline)
+                        }
+                    }
+                    TextButton(onClick = { app.startKitePlusSignIn(switchAccount = true) }, enabled = !busy) {
+                        Text(stringResource(R.string.kite_plus_switch_account), color = colors.secondaryLabel)
+                    }
+                }
+                app.kitePlusError?.let { FormError(it) }
+            } else if (app.registrationEnabled) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                     SignInMode.entries.forEachIndexed { index, option ->
                         SegmentedButton(
@@ -190,43 +224,55 @@ fun SignInSheet(initial: SignInMode, onDismiss: () -> Unit) {
                     }
                 }
             }
-            FormSection {
-                AnimatedVisibility(registering) {
-                    Column {
-                        FormField(name, { name = it }, stringResource(R.string.sign_in_name_prompt))
-                        RowDivider(inset = false)
-                    }
-                }
-                FormField(email, { email = it }, stringResource(R.string.sign_in_email), keyboardType = KeyboardType.Email)
-                RowDivider(inset = false)
-                FormField(
-                    password, { password = it }, stringResource(R.string.sign_in_password),
-                    secure = !showsPassword,
-                    imeAction = if (registering) ImeAction.Next else ImeAction.Go,
-                    onDone = { if (!registering) submit() },
-                    trailingIcon = {
-                        IconButton(onClick = { showsPassword = !showsPassword }) {
-                            Icon(
-                                if (showsPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
-                                stringResource(if (showsPassword) R.string.sign_in_hide_password else R.string.sign_in_show_password),
-                                tint = colors.secondaryLabel,
-                            )
+            if (app.allowsPassword) {
+                FormSection(header = if (kitePlus != null) stringResource(R.string.sign_in_password_accounts) else null) {
+                    AnimatedVisibility(registering) {
+                        Column {
+                            FormField(name, { name = it }, stringResource(R.string.sign_in_name_prompt))
+                            RowDivider(inset = false)
                         }
-                    },
-                )
-                AnimatedVisibility(registering) {
-                    Column {
-                        RowDivider(inset = false)
-                        FormField(confirmation, { confirmation = it }, stringResource(R.string.sign_in_confirm_password), secure = true, imeAction = ImeAction.Go, onDone = ::submit)
+                    }
+                    FormField(email, { email = it }, stringResource(R.string.sign_in_email), keyboardType = KeyboardType.Email)
+                    RowDivider(inset = false)
+                    FormField(
+                        password, { password = it }, stringResource(R.string.sign_in_password),
+                        secure = !showsPassword,
+                        imeAction = if (registering) ImeAction.Next else ImeAction.Go,
+                        onDone = { if (!registering) submit() },
+                        trailingIcon = {
+                            IconButton(onClick = { showsPassword = !showsPassword }) {
+                                Icon(
+                                    if (showsPassword) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
+                                    stringResource(if (showsPassword) R.string.sign_in_hide_password else R.string.sign_in_show_password),
+                                    tint = colors.secondaryLabel,
+                                )
+                            }
+                        },
+                    )
+                    AnimatedVisibility(registering) {
+                        Column {
+                            RowDivider(inset = false)
+                            FormField(confirmation, { confirmation = it }, stringResource(R.string.sign_in_confirm_password), secure = true, imeAction = ImeAction.Go, onDone = ::submit)
+                        }
                     }
                 }
-            }
-            if (registering) {
-                Text(stringResource(R.string.password_rule), style = ExploreType.footnote, color = colors.secondaryLabel, modifier = Modifier.fillMaxWidth())
-            }
-            error?.let { FormError(it) }
-            PrimaryButton(onClick = ::submit, modifier = Modifier.fillMaxWidth(), enabled = !working, large = true) {
-                if (working) ButtonSpinner() else Text(stringResource(if (registering) R.string.account_create else R.string.account_sign_in), style = ExploreType.headline)
+                if (registering) {
+                    Text(stringResource(R.string.password_rule), style = ExploreType.footnote, color = colors.secondaryLabel, modifier = Modifier.fillMaxWidth())
+                }
+                error?.let { FormError(it) }
+                val label: @Composable () -> Unit = {
+                    if (working) {
+                        ButtonSpinner(if (kitePlus != null) colors.label else colors.background)
+                    } else {
+                        Text(stringResource(if (registering) R.string.account_create else R.string.account_sign_in), style = ExploreType.headline)
+                    }
+                }
+                // With Kite Plus as the main way in, the password sign-in takes the quieter button.
+                if (kitePlus != null) {
+                    SecondaryButton(onClick = ::submit, modifier = Modifier.fillMaxWidth(), enabled = !busy, large = true) { label() }
+                } else {
+                    PrimaryButton(onClick = ::submit, modifier = Modifier.fillMaxWidth(), enabled = !busy, large = true) { label() }
+                }
             }
             Text(stringResource(R.string.sign_in_privacy), style = ExploreType.footnote, color = colors.secondaryLabel, textAlign = TextAlign.Center)
             Spacer(Modifier.height(12.dp))

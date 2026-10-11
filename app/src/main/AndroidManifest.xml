@@ -32,6 +32,16 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="explore" />
             </intent-filter>
+            <!--
+                Kite Plus sign-in returns here on explore.kite.plus. Verification needs the server's
+                assetlinks.json to list the release certificate (RELEASE.md); other servers use explore://.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="explore.kite.plus" android:path="/app/auth/done" />
+            </intent-filter>
         </activity>
 
         <receiver
