@@ -12,6 +12,9 @@ import org.junit.Assert.fail
 import org.junit.Test
 import plus.kite.explore.data.ApiClient
 import plus.kite.explore.data.ApiError
+import plus.kite.explore.data.AppSignIn
+import plus.kite.explore.data.AuthOptions
+import plus.kite.explore.data.PendingSignIns
 import plus.kite.explore.data.ExploreJson
 import plus.kite.explore.data.User
 
@@ -135,6 +138,258 @@ class ApiClientWireTest {
             val request = server.requests.single()
             assertNull(request.header("Authorization"))
             assertNull(request.header("Cookie"))
+        }
+    }
+}
+
+class PkceTest {
+    @Test
+    fun challengeMatchesRfc7636() {
+        // RFC 7636 appendix B.
+        assertEquals("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM", AppSignIn.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
+    }
+
+    @Test
+    fun verifiersAreFreshAndWellFormed() {
+        val verifiers = (1..50).map { AppSignIn.newVerifier() }
+        assertEquals(50, verifiers.toSet().size)
+        for (verifier in verifiers) {
+            assertEquals(43, verifier.length)
+            assertTrue(verifier, verifier.all { it.isLetterOrDigit() || it == '-' || it == '_' })
+            assertEquals(43, AppSignIn.challenge(verifier).length)
+        }
+    }
+}
+
+class StartUrlTest {
+    private val challenge = AppSignIn.challenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk")
+
+    @Test
+    fun explorePlusUsesTheHttpsCallback() {
+        assertEquals(
+            "https://explore.kite.plus/auth/app/start?challenge=$challenge&client=android",
+            AppSignIn.startUrl("https://explore.kite.plus/", challenge, switchAccount = false),
+        )
+        assertTrue(AppSignIn.usesHttpsCallback("https://explore.kite.plus"))
+    }
+
+    @Test
+    fun otherServersUseTheScheme() {
+        assertEquals(
+            "http://localhost:8080/auth/app/start?challenge=$challenge&client=android&switch=1&callback=scheme",
+            AppSignIn.startUrl("http://localhost:8080", challenge, switchAccount = true),
+        )
+        for (server in listOf("https://explore.example.com", "http://explore.kite.plus", "https://explore.kite.plus:8443")) {
+            assertFalse(server, AppSignIn.usesHttpsCallback(server))
+        }
+    }
+}
+
+class CallbackTest {
+    @Test
+    fun readsCodes() {
+        assertEquals(AppSignIn.Callback.Code("abc-_1", true), AppSignIn.parseCallback("https://explore.kite.plus/app/auth/done?code=abc-_1"))
+        assertEquals(AppSignIn.Callback.Code("abc", false), AppSignIn.parseCallback("explore://app/auth/done?code=abc"))
+    }
+
+    @Test
+    fun readsFailures() {
+        assertEquals(AppSignIn.Callback.Failure("email_in_use", false), AppSignIn.parseCallback("explore://app/auth/done?error=email_in_use"))
+        assertEquals(AppSignIn.Callback.Failure("login_failed", true), AppSignIn.parseCallback("https://explore.kite.plus/app/auth/done"))
+        assertEquals(AppSignIn.Callback.Failure("login_failed", false), AppSignIn.parseCallback("explore://app/auth/done?code="))
+    }
+
+    @Test
+    fun leavesOtherAddressesAlone() {
+        val others = listOf(
+            "explore://blogs/example.com",
+            "explore://app/other",
+            "https://explore.kite.plus/blogs/example.com",
+            "https://evil.example/app/auth/done?code=abc",
+            "http://explore.kite.plus/app/auth/done?code=abc",
+            "https://explore.kite.plus:444/app/auth/done?code=abc",
+            "not a url",
+        )
+        for (address in others) assertNull(address, AppSignIn.parseCallback(address))
+    }
+
+    @Test
+    fun mapsEveryFailureToItsMessage() {
+        val expected = mapOf(
+            "login_expired" to R.string.kite_plus_error_expired,
+            "invalid_grant" to R.string.kite_plus_error_expired,
+            "login_failed" to R.string.kite_plus_error_failed,
+            "access_denied" to R.string.kite_plus_error_cancelled,
+            "unavailable" to R.string.kite_plus_error_unavailable,
+            "account_disabled" to R.string.kite_plus_error_disabled,
+            "email_in_use" to R.string.kite_plus_error_email_in_use,
+            "email_unverified" to R.string.kite_plus_error_email_unverified,
+            "registration_closed" to R.string.sign_in_error_closed,
+            "something_new" to R.string.kite_plus_error_failed,
+        )
+        for ((reason, message) in expected) assertEquals(reason, message, AppSignIn.failureMessage(reason))
+    }
+}
+
+class PendingSignInTest {
+    private class Memory : PendingSignIns.Storage {
+        var value: String? = null
+        override fun read() = value
+        override fun write(value: String?) {
+            this.value = value
+        }
+    }
+
+    private var clock = 1_000_000L
+    private val storage = Memory()
+    private val signIns = PendingSignIns(storage) { clock }
+    private val local = "http://localhost:8080"
+
+    @Test
+    fun startsWithAChallengeForTheStoredVerifier() {
+        val url = signIns.start("$local/", switchAccount = false)
+        val pending = signIns.pending!!
+        assertEquals(local, pending.server)
+        assertFalse(pending.https)
+        assertTrue(url, url.contains("challenge=" + AppSignIn.challenge(pending.verifier)))
+        assertTrue(storage.value!!.contains(pending.verifier))
+    }
+
+    @Test
+    fun exchangesACodeOnce() {
+        signIns.start(local, switchAccount = false)
+        val verifier = signIns.pending!!.verifier
+        val callback = AppSignIn.Callback.Code("code1", https = false)
+        assertEquals(PendingSignIns.Outcome.Exchange(local, "code1", verifier), signIns.resolve(callback, local))
+        assertNull(storage.value)
+        assertEquals(PendingSignIns.Outcome.Ignored, signIns.resolve(callback, local))
+    }
+
+    @Test
+    fun ignoresCallbacksNobodyAskedFor() {
+        assertEquals(PendingSignIns.Outcome.Ignored, signIns.resolve(AppSignIn.Callback.Code("code1", https = false), local))
+    }
+
+    @Test
+    fun keepsWaitingThroughTheOtherKindOfCallback() {
+        signIns.start(AppSignIn.CLAIMED_SERVER, switchAccount = false)
+        assertEquals(PendingSignIns.Outcome.Ignored, signIns.resolve(AppSignIn.Callback.Code("planted", https = false), AppSignIn.CLAIMED_SERVER))
+        val outcome = signIns.resolve(AppSignIn.Callback.Code("real", https = true), AppSignIn.CLAIMED_SERVER)
+        assertEquals("real", (outcome as PendingSignIns.Outcome.Exchange).code)
+    }
+
+    @Test
+    fun passesFailuresOn() {
+        signIns.start(local, switchAccount = true)
+        assertEquals(PendingSignIns.Outcome.Failed("access_denied"), signIns.resolve(AppSignIn.Callback.Failure("access_denied", false), local))
+        assertNull(signIns.pending)
+    }
+
+    @Test
+    fun expires() {
+        signIns.start(local, switchAccount = false)
+        clock += AppSignIn.PENDING_MILLIS + 1
+        assertEquals(PendingSignIns.Outcome.Failed("login_expired"), signIns.resolve(AppSignIn.Callback.Code("late", false), local))
+        assertNull(signIns.pending)
+    }
+
+    @Test
+    fun belongsToTheServerItStartedOn() {
+        signIns.start(local, switchAccount = false)
+        assertEquals(PendingSignIns.Outcome.Failed("login_expired"), signIns.resolve(AppSignIn.Callback.Code("c", false), "http://127.0.0.1:8080"))
+    }
+
+    @Test
+    fun unreadableStateCountsAsNone() {
+        storage.value = "garbage"
+        assertNull(signIns.pending)
+        assertEquals(PendingSignIns.Outcome.Ignored, signIns.resolve(AppSignIn.Callback.Code("c", false), local))
+    }
+
+    @Test
+    fun cancels() {
+        signIns.start(local, switchAccount = false)
+        signIns.cancel()
+        assertNull(signIns.pending)
+    }
+}
+
+class AuthOptionsTest {
+    @Test
+    fun decodesKitePlus() {
+        val options = ExploreJson.decodeFromString(
+            AuthOptions.serializer(),
+            """{"password":true,"oidc":{"name":"Kite Plus 账号","account_url":"https://id.kite.plus/ui/console/users/me"}}""",
+        )
+        assertTrue(options.password)
+        assertEquals("Kite Plus 账号", options.oidc?.name)
+        assertEquals("https://id.kite.plus/ui/console/users/me", options.oidc?.accountUrl)
+    }
+
+    @Test
+    fun decodesPasswordOnly() {
+        assertNull(ExploreJson.decodeFromString(AuthOptions.serializer(), """{"password":true,"oidc":null}""").oidc)
+    }
+
+    @Test
+    fun sendsTheLanguageAndReadsTheAnswer() = runBlocking {
+        FakeServer { FakeServer.Response(200, """{"password":false,"oidc":{"name":"Kite Plus account","account_url":"https://id.example/me"}}""") }.use { server ->
+            val options = ApiClient(server.url).authOptions()
+            assertFalse(options.password)
+            assertEquals("Kite Plus account", options.oidc?.name)
+            val request = server.requests.single()
+            assertEquals("/api/v1/auth/options", request.path)
+            assertTrue(request.header("Accept-Language") in setOf("en", "zh-CN"))
+        }
+    }
+
+    @Test
+    fun anOlderServerHasPasswordsOnly() = runBlocking {
+        FakeServer { FakeServer.Response(404, """{"error":{"code":"not_found","message":"Not found."}}""") }.use { server ->
+            assertEquals(AuthOptions(password = true, oidc = null), ApiClient(server.url).authOptions())
+        }
+    }
+
+    @Test
+    fun otherFailuresAreErrors() = runBlocking {
+        FakeServer { FakeServer.Response(502, "<html>Bad gateway</html>", listOf("Content-Type" to "text/html")) }.use { server ->
+            try {
+                ApiClient(server.url).authOptions()
+                fail()
+            } catch (error: ApiError) {
+                assertEquals(502, error.status)
+            }
+        }
+    }
+}
+
+class ExchangeTest {
+    @Test
+    fun tradesTheCodeAndVerifierForAToken() = runBlocking {
+        FakeServer { FakeServer.Response(200, """{"token":"$TOKEN","expires_at":"2026-11-10T08:00:00Z","user":$USER}""") }.use { server ->
+            val (user, token) = ApiClient(server.url).exchange("code1", "verifier1")
+            assertEquals(TOKEN, token)
+            assertEquals("alice@example.com", user.email)
+            val request = server.requests.single()
+            assertEquals("POST", request.method)
+            assertEquals("/api/v1/auth/app/exchange", request.path)
+            assertTrue(request.header("Content-Type")!!.startsWith("application/json"))
+            val body = Json.parseToJsonElement(request.body).jsonObject
+            assertEquals("code1", body["code"]?.jsonPrimitive?.content)
+            assertEquals("verifier1", body["verifier"]?.jsonPrimitive?.content)
+        }
+    }
+
+    @Test
+    fun aBadCodeIsInvalidGrant() = runBlocking {
+        FakeServer { FakeServer.Response(400, """{"error":{"code":"invalid_grant","message":"x"}}""") }.use { server ->
+            try {
+                ApiClient(server.url).exchange("code1", "verifier1")
+                fail()
+            } catch (error: ApiError) {
+                assertEquals("invalid_grant", error.code)
+                assertEquals(R.string.kite_plus_error_expired, AppSignIn.failureMessage(error.code!!))
+            }
         }
     }
 }

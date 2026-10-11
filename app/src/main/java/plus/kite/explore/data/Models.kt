@@ -114,6 +114,22 @@ data class User(
 @Serializable
 data class AppSession(val token: String, val user: User)
 
+/** How a server signs readers in (GET /api/v1/auth/options). */
+@Serializable
+data class AuthOptions(
+    val password: Boolean = true,
+    /** The identity provider the server signs in through, or null when it has none. */
+    val oidc: Oidc? = null,
+) {
+    @Serializable
+    data class Oidc(
+        /** The provider's name in the interface language, such as "Kite Plus account". */
+        val name: String = "",
+        /** The provider's page for managing and deleting the account. */
+        @SerialName("account_url") val accountUrl: String = "",
+    )
+}
+
 /** What an OPML import did: the outlines read, the blogs followed, and those Explore does not list. */
 @Serializable
 data class OpmlImport(

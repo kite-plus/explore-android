@@ -126,9 +126,23 @@ class ApiClient(server: String, @Volatile var sessionToken: String? = null) {
 
     // Account
 
+    /**
+     * How the server signs readers in. Servers from before Kite Plus sign-in answer 404 and
+     * offer passwords only.
+     */
+    suspend fun authOptions(): AuthOptions = try {
+        get("api/v1/auth/options", AuthOptions.serializer(), fresh = true)
+    } catch (error: ApiError) {
+        if (error.status == 404) AuthOptions() else throw error
+    }
+
     /** Signs in and returns the user with the new session token. */
     suspend fun signIn(email: String, password: String): Pair<User, String> =
         startSession("api/v1/auth/login", json("email" to email, "password" to password, "client" to CLIENT))
+
+    /** Trades the code a Kite Plus sign-in brought back, with its PKCE verifier, for a session token. */
+    suspend fun exchange(code: String, verifier: String): Pair<User, String> =
+        startSession("api/v1/auth/app/exchange", json("code" to code, "verifier" to verifier))
 
     suspend fun register(email: String, password: String, displayName: String): Pair<User, String> =
         startSession(

@@ -120,6 +120,13 @@
     <string name="following_welcome_title">Follow the Blogs You Love</string>
     <string name="generator_other">Other</string>
     <string name="handoff_title">Taking you to the author\'s site</string>
+    <string name="kite_plus_error_cancelled">Signing in with Kite Plus was cancelled.</string>
+    <string name="kite_plus_error_disabled">This account is disabled.</string>
+    <string name="kite_plus_error_email_in_use">This email already belongs to an Explore account. Sign in with its email and password, then link it to Kite Plus on the account page of the Explore website.</string>
+    <string name="kite_plus_error_email_unverified">Verify your email in your Kite Plus account first.</string>
+    <string name="kite_plus_error_expired">The sign-in expired. Try again.</string>
+    <string name="kite_plus_error_failed">Signing in with Kite Plus didn\'t work. Try again.</string>
+    <string name="kite_plus_error_unavailable">Kite Plus accounts are unavailable right now. Try again later.</string>
     <string name="link_awaiting_check">Awaiting check</string>
     <string name="link_check_now">Check Now</string>
     <string name="link_checked_at">Checked %1$s</string>
