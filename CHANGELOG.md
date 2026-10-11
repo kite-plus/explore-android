@@ -24,5 +24,7 @@ The first version of Kite for Android, with everything Kite for iOS 0.1.4 offers
 - Submit a blog with its feed checked on the spot, review what Explore found, and follow the review under My Submissions; claim your blog with a DNS record; report a problem with a blog or a post.
 - Posts and blogs share as cards with the Kite mark and a QR code to their pages on Explore: save to Photos, share the image or copy the link.
 - A Latest Posts widget in three sizes, optionally narrowed to Chinese or English blogs.
+- Kite Plus accounts: on a server that signs in through Kite Plus, Sign In with Kite Plus account comes first and opens the server's sign-in page in a browser tab, where a browser already signed in to Kite Plus goes straight through; Use Another Account picks a different one. There, new accounts come from Kite Plus, so the app offers no sign-up, and accounts made on Explore before still sign in with their password. Me marks an account linked to Kite Plus and offers Delete Kite Plus Account, which opens the Kite Plus account page. On explore.kite.plus, signing in returns to the app through an App Link; other servers return through `explore://`.
+- Signed-in requests send the session as a Bearer token. Servers released before Kite Plus sign-in read only the session cookie, so for now the app sends the cookie, and the CSRF token with writes, as well.
 - Another Explore server can be chosen under Me; sign-ins are kept per server.
 - English and Simplified Chinese.

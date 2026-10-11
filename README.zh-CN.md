@@ -14,7 +14,7 @@ Kite 是 [Explore](https://github.com/kite-plus/explore) 的原生安卓客户�
 - **订阅**：订阅博客，在发现页的「订阅」标签里追更；订阅列表在「我的」里管理，可以导入其他阅读器导出的 OPML，也可以导出为 OPML 带到任何 RSS 阅读器。
 - **博客**：按最近更新排列的博客目录，可以搜索全部博客；每个博客都有自己的页面，展示订阅源、文章、语言和博客系统。
 - **搜索**：点发现页右上角的搜索按钮进入搜索页，可以浏览 Explore 的标签，并按名称、地址、简介即时搜索博客。
-- **我的**：登录或创建账号，修改名称和密码，删除账号，用 DNS 记录认领自己的博客，提交博客并跟踪审核进度，还可以连接其他 Explore 服务器。
+- **我的**：服务器提供 Kite Plus 账号时用它登录，也可以用 Explore 账号登录（没有 Kite Plus 的服务器上可以在 App 里创建账号），修改名称和密码，删除账号，用 DNS 记录认领自己的博客，提交博客并跟踪审核进度，还可以连接其他 Explore 服务器。Kite Plus 账号在它自己的页面删除，「我的」里有入口。
 - **阅读**：和网站一样，点开文章先显示一个不到一秒的过渡页（可以关掉），写着博客名和文章标题，然后在 App 内的浏览器标签页（Custom Tabs）中打开，也可以改为直接用浏览器打开。标签页的菜单里可以分享文章卡片、订阅博客，或在 App 中查看博客。链接和网站一样只加上 `utm_source`，不添加任何其他内容。打开过的文章在列表里会变淡，这些记录只留在设备上。
 - **分享**：文章和博客可以生成带 Kite 标志和二维码的卡片，存到相册或发给别人。扫码后，文章打开它在 Explore 上的分享页，博客打开它在 Explore 上的页面。
 - **小组件**：在主屏幕上显示最新文章，三种尺寸，可以只看中文或英文博客。点一下文章，就在作者的网站打开。
@@ -24,7 +24,7 @@ App 和 iOS 版逐屏对应，控件用安卓自己的：Material 3 组件、系
 
 ## 隐私
 
-App 没有统计，也不请求任何第三方：文章缩略图和博客图标都来自 Explore 服务器。阅读不需要账号，也不发送 Cookie。登录后，会话令牌用 Android Keystore 里的密钥加密保存，只发给它所属的服务器，也不会被备份。文章链接从不经过跳转。
+App 没有统计，也不请求任何第三方：文章缩略图和博客图标都来自 Explore 服务器。阅读不需要账号，也不发送任何凭据。登录后，会话令牌用 Android Keystore 里的密钥加密保存，以 Bearer 令牌的形式只发给它所属的服务器，也不会被备份。用 Kite Plus 账号登录是在浏览器标签页里打开服务器的页面完成的，App 看不到 Kite Plus 密码，也不持有 Kite Plus 的令牌：服务器只交给 App 一个一次性授权码，只有 App 自己的 PKCE verifier 能兑换。文章链接从不经过跳转。
 
 ## 构建
 
@@ -51,7 +51,7 @@ App 只依赖 AndroidX、Jetpack Compose 和 Kotlin 官方库，二维码编码�
 
 ## 测试
 
-单元测试在 JVM 上运行，覆盖数据解码、时间解析、链接标记、头像颜色、公告在信息流中的位置、深度链接、搜索、OPML 和二维码编码器（用 ZXing 把生成的码读回来核对）：
+单元测试在 JVM 上运行，覆盖数据解码、时间解析、链接标记、头像颜色、公告在信息流中的位置、深度链接、搜索、OPML、二维码编码器（用 ZXing 把生成的码读回来核对）和登录：PKCE、登录地址、回调、等待中的登录，以及和本机回环地址上的测试服务器之间收发的令牌和请求头：
 
 ```bash
 ./gradlew testDebugUnitTest
@@ -62,6 +62,8 @@ CI 在每次推送和拉取请求时运行它们，另外还有 Android lint（�
 ## 链接到 App
 
 `explore://` 链接可以直接打开某个页面，路径和网站相同：`explore://blogs/{host}`、`explore://topics/{slug}`、`explore://submissions/{id}`、`explore://notices/{id}`、`explore://submit`、`explore://sign-in`、`explore://recommended`、`explore://following`、`explore://search` 和 `explore://about`。
+
+Kite Plus 账号登录完成后，在 explore.kite.plus 上经 App Link 回到 `https://explore.kite.plus/app/auth/done`，在其他服务器上回到 `explore://app/auth/done`。两者都只在 App 正在等待自己发起的登录时才会处理；App Link 需要服务器做什么，见 [RELEASE.md](RELEASE.md#kite-plus-sign-in-and-app-links)。
 
 ## 许可证
 

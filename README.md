@@ -14,7 +14,7 @@ Kite is the native Android client for [Explore](https://github.com/kite-plus/exp
 - **Following**: follow blogs and read their new posts in Discover's Following tab; manage the list under Me, import an OPML file from another feed reader, and export the list as OPML for any feed reader.
 - **Blogs**: the directory, most recently updated first, with search over every blog, and a page for every blog with its feed, its posts and its language and blog system.
 - **Search**: the search button at the top right of Discover opens a page that browses Explore's tags and finds blogs by name, address or description as you type.
-- **Me**: sign in or create an account, change your name or password, delete your account, claim your blog with a DNS record, submit a blog and follow its review, and point the app at another Explore server.
+- **Me**: sign in with a Kite Plus account where the server offers one, or with an Explore account (created in the app where Kite Plus is not offered), change your name or password, delete your account, claim your blog with a DNS record, submit a blog and follow its review, and point the app at another Explore server. A Kite Plus account can be deleted from its own page, which Me links to.
 - **Reading**: as on the website, a post first shows a short page naming the blog and the post, which you can turn off, then opens in a browser tab inside the app (Custom Tabs), or in your browser if you prefer. The tab's menu offers the post's share card, following its blog and the blog's page in the app. Links get `utm_source` as on the website; nothing else is added. Posts you have opened are dimmed in the lists; that record stays on the device.
 - **Sharing**: a post or a blog shares as a card with the Kite mark and a QR code, to save to Photos or send on. The code opens a post on its share page on Explore and a blog on its page there.
 - **Widget**: the latest posts on the Home Screen in three sizes, optionally narrowed to Chinese or English blogs. Tapping a post opens it on the author's site.
@@ -24,7 +24,7 @@ The app follows the iOS app screen for screen, with Android's own controls: Mate
 
 ## Privacy
 
-The app has no analytics and makes no requests to third parties: post thumbnails and blog icons come from the Explore server. Reading needs no account and sends no cookie. Once you sign in, the session token is encrypted with a key in the Android Keystore and sent only to the server it came from; nothing is backed up. Links to posts never go through a redirect.
+The app has no analytics and makes no requests to third parties: post thumbnails and blog icons come from the Explore server. Reading needs no account and sends no credentials. Once you sign in, the session token is encrypted with a key in the Android Keystore and sent only to the server it came from, as a Bearer token; nothing is backed up. Signing in with Kite Plus happens on the server's pages in a browser tab, so the app never sees your Kite Plus password and holds no Kite Plus tokens: the server hands it a one-time code that only the app's own PKCE verifier can redeem. Links to posts never go through a redirect.
 
 ## Build
 
@@ -51,7 +51,7 @@ The client follows the API described in Explore's [docs/design/api.md](https://g
 
 ## Tests
 
-The unit tests run on the JVM and cover decoding, timestamps, link tagging, avatar colors, notices in the stream, deep links, search, OPML and the QR encoder, whose codes are read back with ZXing:
+The unit tests run on the JVM and cover decoding, timestamps, link tagging, avatar colors, notices in the stream, deep links, search, OPML, the QR encoder, whose codes are read back with ZXing, and signing in: PKCE, the start address, callbacks, pending sign-ins, and the tokens and headers exchanged with a test server on the loopback address:
 
 ```bash
 ./gradlew testDebugUnitTest
@@ -62,6 +62,8 @@ CI runs them on every push and pull request, along with Android lint (which also
 ## Links into the app
 
 `explore://` links open a screen directly, and accept the same paths as the website: `explore://blogs/{host}`, `explore://topics/{slug}`, `explore://submissions/{id}`, `explore://notices/{id}`, `explore://submit`, `explore://sign-in`, `explore://recommended`, `explore://following`, `explore://search` and `explore://about`.
+
+Kite Plus sign-in comes back to `https://explore.kite.plus/app/auth/done` through an App Link on explore.kite.plus, and to `explore://app/auth/done` on any other server. Either is acted on only while the app is waiting for a sign-in it started; [RELEASE.md](RELEASE.md#kite-plus-sign-in-and-app-links) describes what the server needs for the App Link.
 
 ## License
 

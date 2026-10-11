@@ -69,3 +69,31 @@ To sign a local release build, put the same values in `keystore.properties` at t
 Publishing on Google Play needs a developer account and the listing, and uploads an Android App Bundle (`./gradlew bundleRelease`) rather than the APK.
 
 To keep `main` green, require the Check job in a branch protection rule for `main`.
+
+## Kite Plus sign-in and App Links
+
+Signing in with Kite Plus on explore.kite.plus comes back to the app at `https://explore.kite.plus/app/auth/done`, which the app claims with an App Link (`android:autoVerify` in `AndroidManifest.xml`). Android checks the claim against `https://explore.kite.plus/.well-known/assetlinks.json`, which Explore publishes once the server has these settings (Explore's docs/design/accounts.md, section 1.1):
+
+| Variable | Value |
+|---|---|
+| `EXPLORE_ANDROID_PACKAGE` | `plus.kite.explore`, the default |
+| `EXPLORE_ANDROID_CERT_SHA256` | the SHA-256 fingerprint of the release signing certificate, 32 hex pairs joined by colons; several are separated by commas, such as the upload key and Google Play's app signing key |
+
+The fingerprint can only be set once the release keystore exists (see Setting up signing above). Read it with `keytool -list -v -keystore kite-release.jks -alias kite` (the SHA256 line), or from a signed APK with `apksigner verify --print-certs`. With Play App Signing, the key Play signs with is listed in the Play Console under App integrity.
+
+Set these on explore.kite.plus before or together with turning on Kite Plus sign-in there. Publishing the file also makes the server refuse the `explore://` callback, which any app could register, and until Android has verified the claim, signing in lands on the server's "Finish signing in in the Kite app" page instead of returning to the app. After installing a release build, check the claim:
+
+```bash
+adb shell pm get-app-links plus.kite.explore          # explore.kite.plus: verified
+adb shell pm verify-app-links --re-verify plus.kite.explore
+```
+
+Debug builds (`plus.kite.explore.dev`, signed with the debug key) are not in the file. To try Kite Plus sign-in on explore.kite.plus with one, approve the link on the device by hand:
+
+```bash
+adb shell pm set-app-links-user-selection --user cur --package plus.kite.explore.dev true explore.kite.plus
+```
+
+Any other server sends sign-in back to `explore://app/auth/done` and needs nothing set up. Debug builds also log the address that starts a sign-in (tag `KiteSignIn`), which holds only the PKCE challenge, so the browser part can be finished on another browser when the device's own cannot be used.
+
+Signed-in requests send both the Bearer token and the `explore_session` cookie, the second with the CSRF header on writes, because Explore servers released before Kite Plus sign-in read only the cookie. Once those servers are no longer in use, `ApiClient.sessionHeaders` can drop the cookie and the CSRF header.

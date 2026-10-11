@@ -24,5 +24,7 @@ Kite for Android 的第一个版本，包含 Kite for iOS 0.1.4 中安卓上能�
 - 提交博客时当场检查订阅源，确认 Explore 读到的信息后提交，并在「我的提交」里跟踪审核；用 DNS 记录认领自己的博客；报告博客或文章的问题。
 - 文章和博客可以分享成带 Kite 标志和二维码的卡片，扫码打开它在 Explore 上的页面：可以保存到相册、分享图片或复制链接。
 - 「最新文章」小组件，三种尺寸，可以只看中文或英文博客。
+- Kite Plus 账号：在用 Kite Plus 登录的服务器上，「使用 Kite Plus 账号登录」排在最前，在浏览器标签页里打开服务器的登录页，浏览器已经登录过 Kite Plus 时直接完成；「换一个账号」可以选择另一个账号。这样的服务器上新账号都来自 Kite Plus，App 不再提供注册，以前在 Explore 注册的账号仍可用密码登录。「我的」会标出已关联 Kite Plus 的账号，并提供「删除 Kite Plus 账号」，打开 Kite Plus 的账号页面。在 explore.kite.plus 上，登录经 App Link 回到 App；其他服务器经 `explore://` 回到 App。
+- 登录后的请求以 Bearer 令牌发送会话。Kite Plus 登录之前发布的服务器只认会话 Cookie，所以目前 App 同时发送 Cookie，写操作还附带 CSRF 令牌。
 - 可以在「我的」里连接其他 Explore 服务器，登录状态按服务器分别保存。
 - 英文和简体中文界面。
