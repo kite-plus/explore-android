@@ -104,7 +104,15 @@ data class User(
     @SerialName("csrf_token") val csrfToken: String = "",
     /** True while the password is one an admin reset; servers before Explore 0.1.9 leave it out. */
     @SerialName("temporary_password") val temporaryPassword: Boolean = false,
+    /** False for an account that signs in with Kite Plus only; servers before Kite Plus sign-in leave it out. */
+    @SerialName("password_login") val passwordLogin: Boolean = true,
+    /** When the account was linked to a Kite Plus account, if it was. */
+    @SerialName("identity_linked_at") @Serializable(Rfc3339Serializer::class) val identityLinkedAt: Instant? = null,
 )
+
+/** A session an app signed in to: the token to send as a Bearer token and the account. */
+@Serializable
+data class AppSession(val token: String, val user: User)
 
 /** What an OPML import did: the outlines read, the blogs followed, and those Explore does not list. */
 @Serializable

@@ -20,9 +20,9 @@ import plus.kite.explore.R
 /**
  * Talks to one Explore server (docs/design/api.md in the explore repo).
  *
- * Anonymous requests carry no cookie at all. Once signed in, account requests send the
- * session cookie by hand and writes add the CSRF token; the token is kept encrypted on the
- * device rather than in a shared cookie jar.
+ * Anonymous requests carry no credentials at all. Once signed in, account requests send the
+ * session token as a Bearer token; the token is kept encrypted on the device rather than in
+ * a shared cookie jar.
  */
 class ApiClient(server: String, @Volatile var sessionToken: String? = null) {
     /** The server's address without a trailing slash. */
@@ -128,7 +128,7 @@ class ApiClient(server: String, @Volatile var sessionToken: String? = null) {
 
     /** Signs in and returns the user with the new session token. */
     suspend fun signIn(email: String, password: String): Pair<User, String> =
-        startSession("api/v1/auth/login", json("email" to email, "password" to password))
+        startSession("api/v1/auth/login", json("email" to email, "password" to password, "client" to CLIENT))
 
     suspend fun register(email: String, password: String, displayName: String): Pair<User, String> =
         startSession(
@@ -243,9 +243,7 @@ class ApiClient(server: String, @Volatile var sessionToken: String? = null) {
                 connection.setRequestProperty("Cache-Control", "no-cache")
             }
             if (token != null && signed) {
-                connection.setRequestProperty("Cookie", "explore_session=$token")
-                val csrf = csrfToken
-                if (method != "GET" && csrf != null) connection.setRequestProperty("X-CSRF-Token", csrf)
+                sessionHeaders(token, csrfToken, method).forEach { (name, value) -> connection.setRequestProperty(name, value) }
             }
             if (body != null) {
                 connection.doOutput = true
@@ -306,12 +304,51 @@ class ApiClient(server: String, @Volatile var sessionToken: String? = null) {
 
     private suspend fun startSession(path: String, body: JsonObject): Pair<User, String> {
         val response = perform("POST", path, body = body.toString().encodeToByteArray())
-        val user = decode(User.serializer(), response.text)
-        val token = sessionCookie(response.headers) ?: throw ApiError.InvalidResponse("no session cookie")
-        return user to token
+        return session(response.text, response.headers)
     }
 
     companion object {
+        /** How the app names itself when it signs in, so the server answers with a token rather than a cookie. */
+        const val CLIENT = "android"
+
+        /**
+         * The headers that carry a session. Servers with app sign-in read only the Bearer token
+         * and want no CSRF header with it. Older servers ignore Authorization and read the cookie,
+         * whose writes need the CSRF header, so both go along until every server in use reads
+         * Bearer tokens; then the cookie and the CSRF header can go.
+         */
+        fun sessionHeaders(token: String, csrf: String?, method: String): List<Pair<String, String>> {
+            val headers = mutableListOf("Authorization" to "Bearer $token", "Cookie" to "explore_session=$token")
+            if (method != "GET" && !csrf.isNullOrEmpty()) headers += "X-CSRF-Token" to csrf
+            return headers
+        }
+
+        /**
+         * The user and session token from a sign-in. Servers with app sign-in answer apps with
+         * {token, expires_at, user}; older ones answer with the user and set the session cookie.
+         */
+        fun session(text: String, headers: Map<String?, List<String>>): Pair<User, String> {
+            val body = try {
+                ExploreJson.parseToJsonElement(text) as? JsonObject
+            } catch (error: SerializationException) {
+                throw ApiError.InvalidResponse(error.toString())
+            } ?: throw ApiError.InvalidResponse("not an object")
+            try {
+                if ("token" in body) {
+                    val session = ExploreJson.decodeFromJsonElement(AppSession.serializer(), body)
+                    if (session.token.isEmpty()) throw ApiError.InvalidResponse("empty token")
+                    return session.user to session.token
+                }
+                val user = ExploreJson.decodeFromJsonElement(User.serializer(), body)
+                val token = sessionCookie(headers) ?: throw ApiError.InvalidResponse("no session cookie")
+                return user to token
+            } catch (error: SerializationException) {
+                throw ApiError.InvalidResponse(error.toString())
+            } catch (error: IllegalArgumentException) {
+                throw ApiError.InvalidResponse(error.toString())
+            }
+        }
+
         /** The session token from a response's Set-Cookie headers. */
         fun sessionCookie(headers: Map<String?, List<String>>): String? =
             headers.entries
