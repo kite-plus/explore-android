@@ -63,7 +63,7 @@ CI 在每次推送和拉取请求时运行它们，另外还有 Android lint（�
 
 `explore://` 链接可以直接打开某个页面，路径和网站相同：`explore://blogs/{host}`、`explore://topics/{slug}`、`explore://submissions/{id}`、`explore://notices/{id}`、`explore://submit`、`explore://sign-in`、`explore://recommended`、`explore://following`、`explore://search` 和 `explore://about`。
 
-Kite Plus 账号登录完成后，在 explore.kite.plus 上经 App Link 回到 `https://explore.kite.plus/app/auth/done`，在其他服务器上回到 `explore://app/auth/done`。两者都只在 App 正在等待自己发起的登录时才会处理；App Link 需要服务器做什么，见 [RELEASE.md](RELEASE.md#kite-plus-sign-in-and-app-links)。
+Kite Plus 账号登录完成后，在 explore.kite.plus 上经 App Link 回到 `https://explore.kite.plus/app/auth/done`；在其他服务器上，服务器先在浏览器里请读者确认账号，再回到 `explore://app/auth/done`。两者都只在 App 正在等待自己发起的登录时才会处理，取消登录时不提示；App Link 需要服务器做什么，见 [RELEASE.md](RELEASE.md#kite-plus-sign-in-and-app-links)。
 
 ## 许可证
 

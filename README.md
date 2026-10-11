@@ -63,7 +63,7 @@ CI runs them on every push and pull request, along with Android lint (which also
 
 `explore://` links open a screen directly, and accept the same paths as the website: `explore://blogs/{host}`, `explore://topics/{slug}`, `explore://submissions/{id}`, `explore://notices/{id}`, `explore://submit`, `explore://sign-in`, `explore://recommended`, `explore://following`, `explore://search` and `explore://about`.
 
-Kite Plus sign-in comes back to `https://explore.kite.plus/app/auth/done` through an App Link on explore.kite.plus, and to `explore://app/auth/done` on any other server. Either is acted on only while the app is waiting for a sign-in it started; [RELEASE.md](RELEASE.md#kite-plus-sign-in-and-app-links) describes what the server needs for the App Link.
+Kite Plus sign-in comes back to `https://explore.kite.plus/app/auth/done` through an App Link on explore.kite.plus, and to `explore://app/auth/done` on any other server, after the server asks in the browser to confirm the account. Either is acted on only while the app is waiting for a sign-in it started, and cancelling says nothing; [RELEASE.md](RELEASE.md#kite-plus-sign-in-and-app-links) describes what the server needs for the App Link.
 
 ## License
 
