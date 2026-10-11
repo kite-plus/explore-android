@@ -122,7 +122,6 @@
     <string name="kite_plus_default_name">Kite Plus 账号</string>
     <string name="kite_plus_delete">删除 Kite Plus 账号</string>
     <string name="kite_plus_delete_footer">Kite Plus 账号在 Kite Plus 的各个服务通用。到 Kite Plus 账号页面删除它，Explore 的账号也会随之删除。</string>
-    <string name="kite_plus_error_cancelled">Kite Plus 账号登录已取消。</string>
     <string name="kite_plus_error_disabled">这个账号已停用。</string>
     <string name="kite_plus_error_email_in_use">这个邮箱已经有 Explore 账号。请先用邮箱和密码登录，再到 Explore 网站的「我的账号」页面关联 Kite Plus 账号。</string>
     <string name="kite_plus_error_email_unverified">请先在 Kite Plus 账号里验证邮箱。</string>

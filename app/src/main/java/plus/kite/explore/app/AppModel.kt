@@ -279,7 +279,7 @@ class AppModel(context: Context) {
         val callback = AppSignIn.parseCallback(address) ?: return false
         when (val outcome = signIns.resolve(callback, server)) {
             is PendingSignIns.Outcome.Exchange -> scope.launch { finishKitePlusSignIn(outcome.code, outcome.verifier) }
-            is PendingSignIns.Outcome.Failed -> failKitePlusSignIn(string(AppSignIn.failureMessage(outcome.reason)))
+            is PendingSignIns.Outcome.Failed -> AppSignIn.failureMessage(outcome.reason)?.let { failKitePlusSignIn(string(it)) }
             PendingSignIns.Outcome.Ignored -> Unit
         }
         return true
@@ -299,7 +299,7 @@ class AppModel(context: Context) {
         } catch (error: Exception) {
             if (error.isCancellation) throw error
             val code = (error as? ApiError)?.code
-            failKitePlusSignIn(if (code == "invalid_grant") string(AppSignIn.failureMessage(code)) else message(error))
+            failKitePlusSignIn(if (code == "invalid_grant") string(R.string.kite_plus_error_expired) else message(error))
         } finally {
             isFinishingKitePlus = false
         }

@@ -84,11 +84,13 @@ object AppSignIn {
 
     /**
      * The message for a reason signing in failed: the server's error codes on the callback,
-     * and invalid_grant from the exchange, which means the code expired or was used.
+     * and invalid_grant from the exchange, which means the code expired or was used. Null for
+     * access_denied, which means the reader cancelled, at the provider or on the server's
+     * confirmation page, and needs no message.
      */
-    fun failureMessage(reason: String): Int = when (reason) {
+    fun failureMessage(reason: String): Int? = when (reason) {
+        "access_denied" -> null
         "login_expired", "invalid_grant" -> R.string.kite_plus_error_expired
-        "access_denied" -> R.string.kite_plus_error_cancelled
         "unavailable" -> R.string.kite_plus_error_unavailable
         "account_disabled" -> R.string.kite_plus_error_disabled
         "email_in_use" -> R.string.kite_plus_error_email_in_use

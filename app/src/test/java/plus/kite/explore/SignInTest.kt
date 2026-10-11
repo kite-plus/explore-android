@@ -219,7 +219,6 @@ class CallbackTest {
             "login_expired" to R.string.kite_plus_error_expired,
             "invalid_grant" to R.string.kite_plus_error_expired,
             "login_failed" to R.string.kite_plus_error_failed,
-            "access_denied" to R.string.kite_plus_error_cancelled,
             "unavailable" to R.string.kite_plus_error_unavailable,
             "account_disabled" to R.string.kite_plus_error_disabled,
             "email_in_use" to R.string.kite_plus_error_email_in_use,
@@ -228,6 +227,8 @@ class CallbackTest {
             "something_new" to R.string.kite_plus_error_failed,
         )
         for ((reason, message) in expected) assertEquals(reason, message, AppSignIn.failureMessage(reason))
+        // Cancelling, at the provider or on the server's confirmation page, says nothing.
+        assertNull(AppSignIn.failureMessage("access_denied"))
     }
 }
 
