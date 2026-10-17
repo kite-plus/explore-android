@@ -8,8 +8,8 @@ import plus.kite.explore.data.Blog
 import plus.kite.explore.data.isCancellation
 
 /**
- * The whole blog list, kept on the device so search answers as you type. Explore has no
- * search endpoint; its directory is small enough to hold.
+ * The whole blog list, kept on the device to search servers from before Explore's search
+ * endpoints; the directory is small enough to hold.
  */
 class BlogIndex {
     var blogs by mutableStateOf<List<Blog>>(emptyList())

@@ -232,7 +232,10 @@
     <string name="search_browse_tags">浏览标签</string>
     <string name="search_no_results_description">检查拼写或换个关键词试试。</string>
     <string name="search_no_results_title">没有找到“%1$s”的结果</string>
-    <string name="search_prompt">搜索博客和标签</string>
+    <string name="search_post_count_capped">%1$s+ 篇文章</string>
+    <string name="search_posts">文章</string>
+    <string name="search_posts_unsupported">这个服务器还不支持搜索文章。</string>
+    <string name="search_prompt">搜索文章、博客和标签</string>
     <string name="search_recently_updated">最近更新</string>
     <string name="search_tags">标签</string>
     <string name="server_address">服务器地址</string>
@@ -339,4 +342,11 @@
     <string name="widget_failed">文章加载失败</string>
     <string name="widget_latest">最新</string>
     <string name="widget_name">最新文章</string>
+
+    <plurals name="search_blog_count">
+        <item quantity="other">%1$s 个博客</item>
+    </plurals>
+    <plurals name="search_post_count">
+        <item quantity="other">%1$s 篇文章</item>
+    </plurals>
 </resources>

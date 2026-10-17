@@ -86,7 +86,7 @@ class AppModel(context: Context) {
     var discoverRetaps by mutableIntStateOf(0)
         private set
 
-    /** Every blog, for searching; loaded the first time someone searches. */
+    /** Every blog, for searching a server without search; loaded the first time someone searches one. */
     val blogIndex = BlogIndex()
 
     /** Discover's streams and the directory stay loaded and scrolled while other tabs show. */

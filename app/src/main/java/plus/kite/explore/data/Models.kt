@@ -64,6 +64,18 @@ data class Page<T>(
     @SerialName("next_cursor") val nextCursor: String? = null,
 )
 
+/**
+ * A page of search results. Only the first page counts the matches; posts are counted up to
+ * 1,000, and totalCapped says the count stopped there.
+ */
+@Serializable
+data class SearchPage<T>(
+    val data: List<T> = emptyList(),
+    @SerialName("next_cursor") val nextCursor: String? = null,
+    val total: Int? = null,
+    @SerialName("total_capped") val totalCapped: Boolean = false,
+)
+
 @Serializable
 data class BlogPage(
     val blog: Blog,

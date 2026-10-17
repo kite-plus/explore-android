@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -62,6 +63,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -78,6 +80,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.time.Instant
+import kotlinx.coroutines.delay
 import plus.kite.explore.R
 import plus.kite.explore.app.AppSheet
 import plus.kite.explore.app.LanguageFilter
@@ -108,6 +111,8 @@ import plus.kite.explore.discover.languageTitle
 import plus.kite.explore.feed.EntryList
 import plus.kite.explore.feed.FeedModel
 import plus.kite.explore.feed.MenuRow
+import plus.kite.explore.search.SearchModel
+import plus.kite.explore.search.SearchTerms
 
 /** The blog directory, most recently updated first, kept while other tabs show. */
 class DirectoryState {
@@ -123,6 +128,14 @@ class DirectoryState {
         private set
     val list = LazyListState()
     var query by mutableStateOf("")
+
+    /** The server's answer to the field, blogs only, in the language the filter shows. */
+    val search = SearchModel(includesPosts = false)
+
+    /** Bumped by Try Again, so the search runs again in the screen's scope, not the button's. */
+    var searchAttempt by mutableIntStateOf(0)
+    private var searchListQuery: SearchModel.Query? = null
+    private var searchListState = LazyListState()
     private var loadedKey: String? = null
     private var loadedAt: Instant? = null
 
@@ -160,6 +173,15 @@ class DirectoryState {
         }
     }
 
+    /** The scroll position for the search results on screen, fresh for each result set so it starts at the top. */
+    fun searchList(query: SearchModel.Query?): LazyListState {
+        if (query != searchListQuery) {
+            searchListQuery = query
+            searchListState = LazyListState()
+        }
+        return searchListState
+    }
+
     suspend fun loadMore(client: ApiClient, language: LanguageFilter) {
         val cursor = nextCursor ?: return
         if (isLoadingMore || phase != FeedModel.Phase.Loaded) return
@@ -186,9 +208,18 @@ fun BlogsScreen() {
     val state = app.directory
     val language = LanguageFilter.of(app.prefs.blogsLanguage)
     val trimmed = state.query.trim()
+    val search = state.search
+    val current = SearchModel.Query(trimmed, language.code)
     LaunchedEffect(language, app.server) { state.loadIfNeeded(app.client, language) }
-    LaunchedEffect(trimmed.isEmpty(), app.server) {
-        if (trimmed.isNotEmpty()) app.blogIndex.loadIfNeeded(app.client)
+    LaunchedEffect(trimmed, language, app.server, state.searchAttempt) {
+        if (trimmed.isEmpty()) {
+            search.reset()
+            return@LaunchedEffect
+        }
+        // Waits for a pause in typing; the next keystroke cancels this.
+        delay(300)
+        search.search(current, app.client)
+        if (search.phase == SearchModel.Phase.Unsupported) app.blogIndex.loadIfNeeded(app.client)
     }
     Column(Modifier.fillMaxSize().background(colors.groupedBackground)) {
         Row(
@@ -212,20 +243,15 @@ fun BlogsScreen() {
             Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
         )
         LazyColumn(
-            state = state.list,
+            state = if (trimmed.isEmpty()) state.list else state.searchList(search.query),
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             if (trimmed.isNotEmpty()) {
-                // Search runs over every blog, not only the pages loaded so far.
-                val matches = app.blogIndex.matches(trimmed)
-                if (matches.isEmpty()) {
-                    item { BlogSearchEmpty(trimmed) }
-                } else {
-                    items(matches, key = { it.host }) { BlogCard(it) }
-                }
+                val deviceMatches = if (search.phase == SearchModel.Phase.Unsupported) app.blogIndex.matches(trimmed) else emptyList()
+                searchResults(search, current, deviceMatches) { state.searchAttempt++ }
             } else {
                 when (val phase = state.phase) {
                     FeedModel.Phase.Idle, FeedModel.Phase.Loading -> items(5) { BlogPlaceholder() }
@@ -249,6 +275,44 @@ fun BlogsScreen() {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * The server searches every blog in the chosen language; one from before search leaves it to
+ * the device, over every blog.
+ */
+private fun LazyListScope.searchResults(search: SearchModel, current: SearchModel.Query, deviceMatches: List<Blog>, retry: () -> Unit) {
+    val phase = search.phase
+    when {
+        phase == SearchModel.Phase.Unsupported -> if (deviceMatches.isEmpty()) {
+            item(key = "search-empty") { BlogSearchEmpty(current.text) }
+        } else {
+            items(deviceMatches, key = { it.host }) { BlogCard(it) }
+        }
+        phase is SearchModel.Phase.Failed -> item(key = "search-failed") {
+            val app = LocalApp.current
+            LoadFailed(app.message(phase.error)) { retry() }
+        }
+        search.blogs.isNotEmpty() -> {
+            val words = SearchTerms.words(search.query?.text.orEmpty())
+            items(search.blogs, key = { it.host }) { BlogCard(it, words) }
+            item(key = "search-footer") {
+                val app = LocalApp.current
+                PageFooter(
+                    search.isLoadingMoreBlogs, search.blogPageError?.let { app.message(it) }, search.blogCursor != null,
+                    search.blogs.size, null,
+                ) { search.loadMoreBlogs(app.client) }
+            }
+        }
+        search.query != current -> items(3, key = { "search-placeholder-$it" }) { BlogPlaceholder() }
+        else -> item(key = "search-none") {
+            EmptyState(
+                Icons.AutoMirrored.Rounded.ManageSearch,
+                stringResource(R.string.search_no_results_title, current.text),
+                stringResource(R.string.search_no_results_description),
+            )
         }
     }
 }
@@ -328,10 +392,13 @@ fun BlogSearchEmpty(query: String) {
     }
 }
 
-/** A blog in the directory. The card opens the blog's page; a long press shows its actions. */
+/**
+ * A blog in the directory. The card opens the blog's page; a long press shows its actions.
+ * A search's words are marked in the name and description.
+ */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun BlogCard(blog: Blog) {
+fun BlogCard(blog: Blog, highlight: List<String> = emptyList()) {
     val app = LocalApp.current
     val colors = Explore.colors
     var menu by remember { mutableStateOf(false) }
@@ -348,12 +415,18 @@ fun BlogCard(blog: Blog) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 BlogAvatar(blog.host, blog.name, 48.dp)
                 Column(Modifier.weight(1f).padding(end = 110.dp)) {
-                    Text(blog.name, style = ExploreType.headline, color = colors.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(SearchTerms.marked(blog.name, highlight, colors.mark), style = ExploreType.headline, color = colors.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(Formatting.displayHost(blog.host), style = ExploreType.subheadline, color = colors.secondaryLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             if (blog.about.isNotEmpty()) {
-                Text(blog.about, style = ExploreType.subheadline, color = colors.secondaryLabel, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    SearchTerms.marked(SearchTerms.snippet(blog.about, highlight), highlight, colors.mark),
+                    style = ExploreType.subheadline,
+                    color = colors.secondaryLabel,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
             BlogFacts(blog)
         }

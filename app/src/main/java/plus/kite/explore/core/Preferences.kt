@@ -32,6 +32,7 @@ class Preferences(context: Context) {
     var discoverLanguage by StringPref(prefs, "discover.language", "all")
     var blogsLanguage by StringPref(prefs, "blogs.language", "all")
     var topicLanguage by StringPref(prefs, "topic.language", "all")
+    var searchLanguage by StringPref(prefs, "search.language", "all")
 
     /** The site notice the reader closed, so it stays closed until it changes. */
     var dismissedNotice by StringPref(prefs, "notice.dismissed", "")

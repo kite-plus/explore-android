@@ -82,6 +82,7 @@ import plus.kite.explore.design.Hairline
 import plus.kite.explore.design.LoadFailed
 import plus.kite.explore.design.PageFooter
 import plus.kite.explore.design.TopicStyle
+import plus.kite.explore.search.SearchTerms
 
 /**
  * A stream of posts in one run, newest first, as flat rows split by hairlines; each row says
@@ -174,11 +175,11 @@ fun EntryList(
  * One post, laid out as on the website: its blog and time first, then the title and two lines
  * of excerpt beside the thumbnail, then its tags. The title, excerpt and thumbnail open the
  * post on the author's site; the blog's name leads to its page. Titles and excerpts keep the
- * blog's own language and are never translated.
+ * blog's own language and are never translated. A search's words are marked in them.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun EntryRow(entry: Entry, showsBlog: Boolean = true, contextBlog: BlogRef? = null) {
+fun EntryRow(entry: Entry, showsBlog: Boolean = true, contextBlog: BlogRef? = null, highlight: List<String> = emptyList()) {
     val app = LocalApp.current
     val colors = Explore.colors
     val blog = entry.blog ?: contextBlog
@@ -203,7 +204,7 @@ fun EntryRow(entry: Entry, showsBlog: Boolean = true, contextBlog: BlogRef? = nu
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
-                        entry.title,
+                        SearchTerms.marked(entry.title, highlight, colors.mark),
                         style = ExploreType.headline,
                         color = if (read) colors.secondaryLabel else colors.label,
                         maxLines = 3,
@@ -212,7 +213,7 @@ fun EntryRow(entry: Entry, showsBlog: Boolean = true, contextBlog: BlogRef? = nu
                     val excerpt = entry.excerpt
                     if (!excerpt.isNullOrEmpty()) {
                         Text(
-                            excerpt,
+                            SearchTerms.marked(SearchTerms.snippet(excerpt, highlight), highlight, colors.mark),
                             style = ExploreType.subheadline,
                             color = if (read) colors.tertiaryLabel else colors.secondaryLabel,
                             maxLines = 2,

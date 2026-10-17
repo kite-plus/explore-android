@@ -84,6 +84,16 @@ class ApiClient(server: String, @Volatile var sessionToken: String? = null) {
 
     suspend fun topics(): List<Topic> = get("api/v1/tags", DataList.serializer(Topic.serializer())).data
 
+    // Search
+
+    /** Posts whose title or feed excerpt holds every word of the query, title matches first. Servers before search answer 404. */
+    suspend fun searchEntries(query: String, cursor: String?, language: String?, limit: Int = 30): SearchPage<Entry> =
+        get("api/v1/search/entries", SearchPage.serializer(Entry.serializer()), searchQuery(query, cursor, language, limit))
+
+    /** Blogs whose name, host or description holds every word of the query. */
+    suspend fun searchBlogs(query: String, cursor: String?, language: String?, limit: Int = 30): SearchPage<Blog> =
+        get("api/v1/search/blogs", SearchPage.serializer(Blog.serializer()), searchQuery(query, cursor, language, limit))
+
     /** The notices and ads showing now for the interface language. */
     suspend fun notices(fresh: Boolean = false): List<Notice> =
         get(
@@ -217,6 +227,9 @@ class ApiClient(server: String, @Volatile var sessionToken: String? = null) {
         if (tag != null) items += "tag" to tag
         return items
     }
+
+    private fun searchQuery(query: String, cursor: String?, language: String?, limit: Int): List<Pair<String, String>> =
+        listOf("q" to query) + listQuery(cursor, language, null) + ("limit" to limit.toString())
 
     private fun url(path: String, query: List<Pair<String, String>>): String {
         val base = address(path)

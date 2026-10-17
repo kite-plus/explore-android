@@ -233,7 +233,10 @@
     <string name="search_browse_tags">Browse Tags</string>
     <string name="search_no_results_description">Check the spelling or try a new search.</string>
     <string name="search_no_results_title">No Results for “%1$s”</string>
-    <string name="search_prompt">Search blogs and tags</string>
+    <string name="search_post_count_capped">%1$s+ posts</string>
+    <string name="search_posts">Posts</string>
+    <string name="search_posts_unsupported">This server can\'t search posts yet.</string>
+    <string name="search_prompt">Search posts, blogs and tags</string>
     <string name="search_recently_updated">Recently Updated</string>
     <string name="search_tags">Tags</string>
     <string name="server_address">Server Address</string>
@@ -340,4 +343,13 @@
     <string name="widget_failed">Couldn\'t load posts</string>
     <string name="widget_latest">Latest</string>
     <string name="widget_name">Latest Posts</string>
+
+    <plurals name="search_blog_count">
+        <item quantity="one">%1$s blog</item>
+        <item quantity="other">%1$s blogs</item>
+    </plurals>
+    <plurals name="search_post_count">
+        <item quantity="one">%1$s post</item>
+        <item quantity="other">%1$s posts</item>
+    </plurals>
 </resources>
